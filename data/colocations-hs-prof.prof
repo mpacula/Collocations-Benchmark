@@ -1,0 +1,39 @@
+	Sat Dec 17 16:07 2011 Time and Allocation Profiling Report  (Final)
+
+	   colocations-hs-prof +RTS -p -RTS
+
+	total time  =        9.24 secs   (462 ticks @ 20 ms)
+	total alloc = 2,759,138,848 bytes  (excludes profiling overheads)
+
+COST CENTRE                    MODULE               %time %alloc
+
+main                           Main                  50.0   46.4
+sentenceToSet                  Main                  22.5   21.4
+aggregateCounts                Main                  19.5   11.1
+sentenceCounts                 Main                   5.4   11.6
+serialize                      Main                   1.3    2.9
+trim                           Main                   0.9    5.8
+
+
+                                                                                               individual    inherited
+COST CENTRE              MODULE                                               no.    entries  %time %alloc   %time %alloc
+
+MAIN                     MAIN                                                   1           0   0.0    0.0   100.0  100.0
+ CAF                     Main                                                 238           8   0.0    0.0   100.0  100.0
+  sentenceToSet          Main                                                 252           1   0.0    0.0     0.0    0.0
+  trim                   Main                                                 249           1   0.0    0.0     0.0    0.0
+  emptyCountTable        Main                                                 245           1   0.0    0.0     0.0    0.0
+  main                   Main                                                 244           1  50.0   46.4   100.0  100.0
+   serialize             Main                                                 254      355687   1.3    2.9     1.3    2.9
+   documentCounts        Main                                                 246        6136   0.2    0.1    48.7   50.7
+    trim                 Main                                                 250           0   0.9    5.8     0.9    5.8
+    paragraphCounts      Main                                                 248        6135   0.2    0.6    28.1   33.7
+     sentenceCounts      Main                                                 251         576   5.4   11.6    27.9   33.0
+      sentenceToSet      Main                                                 253           0  22.5   21.4    22.5   21.4
+    aggregateCounts      Main                                                 247        6135  19.5   11.1    19.5   11.1
+ CAF                     Data.Typeable                                        236           2   0.0    0.0     0.0    0.0
+ CAF                     GHC.IO.Exception                                     230           4   0.0    0.0     0.0    0.0
+ CAF                     GHC.IO.Handle.FD                                     175           3   0.0    0.0     0.0    0.0
+ CAF                     GHC.IO.Handle.Internals                              139           2   0.0    0.0     0.0    0.0
+ CAF                     GHC.IO.Encoding.Iconv                                133           2   0.0    0.0     0.0    0.0
+ CAF                     GHC.Conc.Signal                                      130           1   0.0    0.0     0.0    0.0
