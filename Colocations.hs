@@ -1,92 +1,72 @@
-{-
-  Counts word colocations in text documents.
-  (c) Maciej Pacula 2011
--}
+{-# LANGUAGE OverloadedStrings #-}
 
-{-# LANGUAGE TypeSynonymInstances #-}
+import Control.Monad (mapM_)
+import Data.Functor ((<$>))
+import Data.Hashable (Hashable)
+import Data.Int (Int64)
+import Data.List (foldl', sort)
+import Data.Monoid (mappend)
+import System.IO (stdin)
+import qualified Data.HashMap.Strict as H
+import qualified Data.HashSet as HS
+import qualified Data.List.Split as S
+import qualified Data.Text as T
+import qualified Data.Text.IO as T
 
-module Main where
+type Sentence   = T.Text
+type Paragraph  = [Sentence]
+type Word       = T.Text
+type Pair       = (Word, Word)
+type CountTable = H.HashMap T.Text (H.HashMap T.Text Count)
+type Count      = Int64
 
-import Control.Monad
-import Data.List
-import Data.Char
-import Data.Int
-import qualified Data.HashTable as H
-import System.IO
+main :: IO ()
+main = T.interact $ T.unlines . map serialize . sort . counts
 
-type CountPair = (String, Int64)
-type CountTable = H.HashTable String Int64
+serialize :: (Word, Word, Count) -> T.Text
+serialize (w1, w2, c) = T.concat [T.pack (show c), "\t", w1, " ", w2]
 
--- Formats a count pair in the ouput format.
-serialize :: CountPair -> String
-serialize (wv,c) = show c ++ "\t" ++ wv
+counts :: T.Text -> [(Word, Word, Count)]
+counts = convert . countTable . concatMap pairs . paragraphs . T.lines
 
--- Removes space characters from both sides of a string
-trim :: String -> String
-trim = trimLeft . trimLeft
-       where
-         trimLeft = reverse . dropWhile isSpace
+convert :: CountTable -> [(Word, Word, Count)]
+convert ct = [ (w1, w2, c)
+             | (w1, w2Map) <- H.toList ct
+             , (w2, c)     <- H.toList w2Map
+             ]
 
--- Converts a sentence to a set of words
-sentenceToSet :: String -> [String]
-sentenceToSet = nub . words
+paragraphs :: [Sentence] -> [Paragraph]
+paragraphs = S.split paragraphSplitter . map T.strip
+    where
+      paragraphSplitter :: S.Splitter Sentence
+      paragraphSplitter = S.dropFinalBlank $ 
+                          S.dropInitBlank  $ 
+                          S.condense       $ 
+                          S.dropDelims     $ 
+                          S.whenElt T.null
 
--- Counts colocations for words in a sentence given its context
--- (surrounding sentences)
-sentenceCounts :: String -> [String] -> [CountPair]
-sentenceCounts sentence context =
-  [(a ++ " " ++ b,1) | a <- (words sentence), b <- (sentenceToSet ctx)]
-  where
-    ctx = foldl' (++) [] $ intersperse " " context
-    
-    
--- Finds all colocation counts for a single paragraph. The returned
--- counts might not be aggregated, i.e. a given pair of words might
--- appear more than once in the output.
-paragraphCounts :: [String] -> [CountPair]
-paragraphCounts [_] = []
-paragraphCounts sentences = helper ("":sentences)
+pairs :: Paragraph -> [Pair]
+pairs [_] = []
+pairs sentences = helper ([]:map T.words sentences)
   where
     helper [] = []
     helper [_] = []
     helper (x:y:[]) = sentenceCounts y [x]
-    helper (x:y:z:rest) = sentenceCounts y [x,z] ++ helper (y:z:rest)
-    
--- Counts colocation for a document, i.e. a set of paragraphs
--- separated by empty lines. The returned counts are aggregated,
--- i.e. a given pair of words will only appear once with all its
--- counts added up.
-documentCounts :: CountTable -> [String] -> IO ()
-documentCounts _ [] = return ()
-documentCounts ht sentences = let sentences' = dropWhile ((== "") . trim) sentences
-                                  paragraph  = takeWhile ((/= "") . trim) sentences'
-                              in
-                               do aggregateCounts ht $ paragraphCounts paragraph
-                                  documentCounts ht $ drop (length paragraph) sentences'
+    helper (x:rs@(y:z:rest)) = sentenceCounts y [x,z] ++ helper rs
 
--- Takes a list of counts where a pair of words may appear more than
--- once, and adds up all the counts for each pair. The results are
--- stored in a HashTable.
-aggregateCounts :: CountTable -> [CountPair] -> IO ()
-aggregateCounts ht counts = do forM_
-                                 counts
-                                 (\(wv,c) ->
-                                   do current <- H.lookup ht wv
-                                      case current of
-                                        Nothing -> H.insert ht wv c
-                                        Just d  -> H.update ht wv (c+d) >> return ())
+sentenceCounts :: [Word] -> [[Word]] -> [Pair]
+sentenceCounts sentence context =
+    [ (w1, w2) 
+    | w1 <- sentence
+    , w2 <- fastNub $ concat context
+    ]
 
-                                       
---  Creates a new empty hashtable to store colocation counts.
-emptyCountTable :: IO CountTable
-emptyCountTable = H.new (==) H.hashString
+fastNub ::(Eq a, Hashable a) => [a] -> [a]
+fastNub = HS.toList . HS.fromList
 
-
--- Counts colocations in text from stdin and output sorted counts to
--- stdout.
-main :: IO ()
-main = do inputStr <- hGetContents stdin
-          ht <- emptyCountTable
-          documentCounts ht $ lines inputStr
-          counts <- H.toList ht
-          forM_ (sort counts) $ putStrLn . serialize
+countTable :: [Pair] -> CountTable
+countTable = foldl' ins H.empty
+    where
+      ins ct (w1, w2) = H.insertWith combine w1 (H.singleton w2 1) ct
+          where
+            combine _ w1Map = H.insertWith (+) w2 1 w1Map
