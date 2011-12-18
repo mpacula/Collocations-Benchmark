@@ -4,29 +4,31 @@
 #include <vector>
 #include <algorithm>
 #include <unordered_map>
+#include <unordered_set>
 #include <boost/algorithm/string.hpp>
-#include <boost/algorithm/string/split.hpp>
 
 using namespace std;
 using namespace boost;
 
 struct CountPair {
-  string wv;
+  string w;
+  string v;
   long count;  
 
-  CountPair(string wv, long count) : wv(wv), count(count) { }
+  CountPair(string w, string v, long count) : w(w), v(v), count(count) { }
+  CountPair() : w(""), v(""), count(0) { }
 
   /// Converts this count pair to the output format.
   void serialize(string& str)
   {
     ostringstream oss;
-    oss << count << '\t' << wv;
+    oss << count << '\t' << w << " " << v;
     str = oss.str();
   }
 
   bool operator < (const CountPair& cp) const
   {
-    return wv < cp.wv;
+    return w < cp.w || (w == cp.w && v < cp.v);
   }
 };
 
@@ -34,52 +36,45 @@ struct CountPair {
 /// spaces).
 void words(string& str, vector<string>& vec) 
 {
-  split(vec, str, is_any_of(" "), token_compress_on);
-  // remove empty tokens
-  for(size_t i = 0; i < vec.size(); i++) {
-    if(vec[i] == "") {
-      vec.erase(vec.begin() + i);
-      i--;
-      continue;
+  size_t start = 0;
+  for(size_t i = 0; i < str.size(); i++) {
+    if(str[i] == ' ') {
+      if(i > start) {
+        vec.push_back(str.substr(start, i-start));        
+      } 
+      start = i+1;
     }
+  }
+
+  if(start < str.size()) {
+    vec.push_back(str.substr(start, str.size()));
   }
 }
 
 /// Destructively Removes duplicates from a vector.
 void nub(vector<string>& vec) 
 {
-  sort(vec.begin(), vec.end());
-  vec.erase(unique(vec.begin(), vec.end()), vec.end());
-}
-
-/// Coverts a string into a vector of unique words.
-void sentenceToSet(string& str, vector<string>& vec) 
-{
-  words(str, vec);
-  nub(vec);
+  unordered_set<string> hs;
+  hs.insert(vec.begin(), vec.end());
+  vec.assign(hs.begin(), hs.end());
 }
 
 /// Emits colocation counts for a words in a single sentence given its
 /// context (sentences around it).
-void sentenceCounts(string& str, vector<string>& context,
-                    vector<CountPair>& counts) 
+void sentenceCounts(vector<string>& sentence, vector<vector<string>>& context,
+                    vector<pair<string, string>>& counts) 
 {
-  // get words in the sentence of interest
-  vector<string> sentenceWords;
-  words(str, sentenceWords);
-
   // Get all words in the context as a unique set 
-  string ctx;
-  for(string& sentence : context) {
-    ctx += sentence + " ";
-  }
   vector<string> ctxWords;
-  sentenceToSet(ctx, ctxWords);
-  
+  for(auto ctxSentenceWords : context) {
+    ctxWords.insert(ctxWords.end(), ctxSentenceWords.begin(), ctxSentenceWords.end());
+  }
+  nub(ctxWords);
+    
   // emit the counts
-  for(string& a : sentenceWords) {
+  for(string& a : sentence) {
     for(string& b : ctxWords) {
-      counts.push_back(CountPair(a+" "+b,1));
+      counts.push_back(make_pair(a, b));
     }
   }
 }
@@ -88,7 +83,7 @@ void sentenceCounts(string& str, vector<string>& context,
 /// index. Returns the index of the first sentence of the next
 /// paragraph or an index after the end of the list if there are no
 /// paragraphs left.
-int paragraphCounts(unordered_map<string, long>& ht,
+int paragraphCounts(unordered_map<string, unordered_map<string, long>>& ht,
                     vector<string>& lines, size_t offset) 
 {  
   // skip empty lines (if any)
@@ -97,16 +92,19 @@ int paragraphCounts(unordered_map<string, long>& ht,
   // get lines for current paragraph. We add two sentinel empty sentences
   // at the beginning and end so that we always have a sentence before
   // and after current sentence.
-  vector<string> paragraph;
-  paragraph.push_back("");
+  vector<vector<string>> paragraph;
+  paragraph.push_back(vector<string>());
   while(offset < lines.size() && trim_copy(lines[offset]) != "") {
-      paragraph.push_back(lines[offset++]);
+    paragraph.resize(paragraph.size()+1);
+    vector<string>* lineWords = &paragraph[paragraph.size()-1];
+    words(lines[offset], *lineWords);
+    offset++;
   }
-  paragraph.push_back("");
+  paragraph.push_back(vector<string>());
  
   // count the colocations in the paragraph
-  vector<string> context;
-  vector<CountPair> counts;
+  vector<vector<string>> context;
+  vector<pair<string, string>> counts;
   for(size_t i = 1; i < paragraph.size() - 1; i++) {
     context.clear();
     context.push_back(paragraph[i-1]);
@@ -116,8 +114,8 @@ int paragraphCounts(unordered_map<string, long>& ht,
   }
 
   // aggregate the counts
-  for(CountPair& cp : counts) {
-    ht[cp.wv] += cp.count;
+  for(auto cp : counts) {
+    ht[cp.first][cp.second] += 1;
   }
 
   return offset;
@@ -130,13 +128,20 @@ void documentCounts(vector<string>& lines, vector<CountPair>& counts)
   /// Accumulate counts in a hash map one paragraph at a time and then
   /// return sored counts in a vector..
   size_t offset = 0;
-  unordered_map<string, long> ht;
+  unordered_map<string, unordered_map<string, long>> ht;
   while(offset < lines.size()) {
     offset = paragraphCounts(ht, lines, offset);
   }
 
-  for(auto kv : ht) {
-    counts.push_back(CountPair(kv.first, kv.second));
+  size_t i = 0;
+  for(auto kv1 : ht) {
+    for(auto kv2 : kv1.second) {
+      counts.resize(i+1);
+      counts[i].w = kv1.first;
+      counts[i].v = kv2.first;
+      counts[i].count = kv2.second;
+      i++;
+    }
   }
 
   sort(counts.begin(), counts.end());
@@ -155,7 +160,7 @@ int main(int argc, char* argv[])
   vector<CountPair> counts;
   documentCounts(lines, counts);
   for(auto cp : counts) {
-    cout << cp.count << "\t" << cp.wv << endl;
+    cout << cp.count << "\t" << cp.w << " " << cp.v << endl;
   }
 
   return 0;
