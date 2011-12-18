@@ -1,0 +1,33 @@
+INTRODUCTION
+
+Collocations-Benchmark is the GitHub repository for the blog post
+http://blog.mpacula.com/2011/12/18/counting-collocations-ghc-and-g-benchmarked.
+
+Collocations-Benchmark provides Haskell and C++ sources of a
+collocation counter: an algorithm that counts which words go close
+together in a natural language corpus.
+
+
+COMPILING
+
+To compile the benchmark binaries, simply call 'make'. To compile
+profiling binaries, call 'make prof'. Plots can be generated using
+'make all-plots'.
+
+
+RUNNING
+
+To run the benchmark, run the 'run-benchmark.sh' script without any
+arguments. The results will be written to the files in the 'data'
+directory.
+
+If you wish to run the binaries directly, use pipes/redirection for
+input and output. For example: 
+
+cat data/input.txt | ./colocations-cpp > output.txt
+
+
+AUTHOR
+
+Collocations-Benchmark was written by Maciej Pacula (maciej.pacula@gmail.com). 
+The author will be happy to answer any questions you may have!
