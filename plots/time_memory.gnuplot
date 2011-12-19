@@ -1,5 +1,5 @@
-set terminal postscript eps enhanced color;
-set output "time.eps";
+set terminal png;
+set output "time.png";
 
 set title ""
  
@@ -11,12 +11,7 @@ plot "../data/colocations-cpp-mean.csv" using ($2/1000):3:7 notitle with errorba
      "../data/colocations-hs-mean.csv" using ($2/1000):3:7 notitle with errorbars, \
      "../data/colocations-hs-mean.csv" using ($2/1000):3:7 title "GHC" with lines
 
-set terminal png
-set output "time.png"
-replot
-
-set terminal postscript eps enhanced color;
-set output "memory.eps";
+set output "memory.png";
 
 set title ""
  
@@ -28,6 +23,10 @@ plot "../data/colocations-cpp-mean.csv" using ($2/1000):($4/1024.0**2):($8/1024*
      "../data/colocations-hs-mean.csv" using ($2/1000):($4/1024.0**2):($8/1024**2) notitle with errorbars, \
      "../data/colocations-hs-mean.csv" using ($2/1000):($4/1024.0**2):($8/1024**2) title "GHC" with lines
 
-set terminal png
-set output "memory.png"
-replot
+
+set output "ratios.png"
+set ylabel "Ratio (GHC/G++)"
+set yr [0:5]
+
+plot "../data/time_memory_ratios.csv" using ($1/1000):2 title "time" with linespoints, \
+     "../data/time_memory_ratios.csv" using ($1/1000):3 title "memory" with linespoints

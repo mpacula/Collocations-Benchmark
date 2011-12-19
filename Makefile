@@ -19,4 +19,5 @@ all-plots: plots/time_memory.gnuplot
 	cd plots; cat time_memory.gnuplot | gnuplot
 
 clean:
-	rm -rf colocations-hs* colocations-cpp* *.hi *.o plots/time.png plots/memory.png plots/time.eps plots/memory.eps
+	rm -rf colocations-hs* colocations-cpp* *.hi *.o plots/time.png plots/memory.png \
+           plots/time.eps plots/memory.eps plots/ratios.png

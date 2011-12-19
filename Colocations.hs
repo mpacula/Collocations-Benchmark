@@ -1,3 +1,5 @@
+-- (c) Bas van Dijk 2011 (https://github.com/basvandijk)
+
 {-# LANGUAGE OverloadedStrings #-}
 
 import Control.Monad (mapM_)

@@ -29,5 +29,6 @@ cat data/input.txt | ./colocations-cpp > output.txt
 
 AUTHOR
 
-Collocations-Benchmark was written by Maciej Pacula (maciej.pacula@gmail.com). 
-The author will be happy to answer any questions you may have!
+Collocations-Benchmark was originally written by Maciej Pacula
+(https://github.com/mpacula). The new Haskell counter was contributed
+by Bas van Dijk (https://github.com/basvandijk).
